@@ -11,6 +11,7 @@ export class HubServer {
   proofChecker: Object
   whitelist: Array<string>
   serverName: string
+  readURL: ?string
   constructor(driver: DriverModel, proofChecker: Object,
               config: { whitelist: Array<string>, servername: string, readURL?: string }) {
     this.driver = driver
@@ -28,6 +29,13 @@ export class HubServer {
     }
 
     validateAuthorizationHeader(requestHeaders.authorization, this.serverName, address)
+  }
+
+  handleListFiles(address: string,
+                  page: ?string,
+                  requestHeaders: { authorization: string }) {
+    this.validate(address, requestHeaders)
+    return this.driver.listFiles(address, page)
   }
 
   getReadURLPrefix() {
@@ -57,5 +65,14 @@ export class HubServer {
 
     return this.proofChecker.checkProofs(address, path, this.getReadURLPrefix())
       .then(() => this.driver.performWrite(writeCommand))
+      .then((readURL) => {
+        const driverPrefix = this.driver.getReadURLPrefix()
+        const readURLPrefix = this.getReadURLPrefix()
+        if (readURLPrefix !== driverPrefix && readURL.startsWith(driverPrefix)) {
+          const postFix = readURL.slice(driverPrefix.length)
+          return `${readURLPrefix}${postFix}`
+        }
+        return readURL
+      })
   }
 }
